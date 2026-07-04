@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto StoryBook Maker</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Phosphor Icons (Vanilla JS alternative to Lucide) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- jsPDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        /* Hide scrollbar for the theme carousel but keep functionality */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 sm:p-6 md:p-12">
+
+    <div class="max-w-3xl mx-auto space-y-8">
+        
+        <!-- Header -->
+        <div class="text-center space-y-4 pt-8">
+            <div class="inline-flex items-center justify-center p-4 bg-indigo-100 rounded-full mb-2">
+                <i class="ph ph-book-open text-4xl text-indigo-600"></i>
+            </div>
+            <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900">
+                Auto StoryBook Maker
+            </h1>
+            <p class="text-lg text-slate-600 max-w-xl mx-auto">
+                Type a topic, pick your page amount and text color, and AI will automatically write a story, generate illustrations including a cover, and download a beautiful PDF book for you.
+            </p>
+        </div>
+
+        <!-- Main Form -->
+        <div class="bg-white p-6 md:p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100">
+            <div class="space-y-6">
+                
+                <!-- Character Upload -->
+                <div class="bg-indigo-50/50 border border-indigo-100 p-5 rounded-2xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="block text-sm font-bold text-slate-700">
+                            Main Character (Optional)
+                        </label>
+                        <span class="text-xs font-medium text-indigo-500 bg-indigo-100 px-2 py-0.5 rounded-full">New</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-4">Upload an image of your character. The AI will try to make the main character look like this in every illustration!</p>
+                    
+                    <!-- Upload Prompt (Shown when no image) -->
+                    <div id="uploadPrompt" class="relative border-2 border-dashed border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50/80 transition-all rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer group">
+                        <input 
+                            type="file" 
+                            id="characterInput"
+                            accept="image/*"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                        />
+                        <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-indigo-500 group-hover:scale-110 transition-transform mb-3">
+                            <i class="ph ph-upload-simple text-2xl"></i>
+                        </div>
+                        <span class="text-sm font-medium text-indigo-600">Click to upload character</span>
+                        <span class="text-xs text-slate-400 mt-1">JPEG or PNG max 2MB</span>
+                    </div>
+
+                    <!-- Upload Preview (Shown when image selected) -->
+                    <div id="uploadPreview" class="hidden items-center gap-4 bg-white p-3 rounded-xl border border-indigo-100 shadow-sm">
+                        <div class="w-16 h-16 rounded-lg overflow-hidden border-2 border-indigo-200 flex-shrink-0">
+                            <img id="characterPreviewImage" src="" alt="Character Reference" class="w-full h-full object-cover" />
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-slate-700">Character Selected</p>
+                            <p class="text-xs text-slate-500">Will be used as a reference for all scenes.</p>
+                        </div>
+                        <button 
+                            id="clearCharacterBtn"
+                            class="w-8 h-8 rounded-full bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-500 flex items-center justify-center transition-colors disabled:opacity-50"
+                        >
+                            <i class="ph ph-x text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Topic Input -->
+                <div>
+                    <label for="topicInput" class="block text-sm font-bold text-slate-700 mb-2">
+                        What should the story be about?
+                    </label>
+                    <textarea
+                        id="topicInput"
+                        rows="3"
+                        class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors resize-none shadow-sm text-lg"
+                        placeholder="A brave little toaster that travels to space..."
+                    ></textarea>
+                </div>
+
+                <!-- Theme Carousel -->
+                <div class="space-y-3 pb-2 pt-2">
+                    <label class="block text-sm font-medium text-slate-700">
+                        Choose a Page Template:
+                    </label>
+                    <div class="relative group">
+                        <button
+                            id="scrollLeftBtn"
+                            class="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 z-20 bg-white/90 backdrop-blur shadow-md hover:shadow-lg rounded-full p-2 text-slate-700 hover:text-indigo-600 transition-all border border-slate-100 hidden sm:flex items-center justify-center h-10 w-10"
+                        >
+                            <i class="ph ph-caret-left text-xl"></i>
+                        </button>
+                        
+                        <div 
+                            id="themeScrollContainer"
+                            class="flex gap-4 overflow-x-auto snap-x py-2 px-1 no-scrollbar scroll-smooth"
+                        >
+                            <!-- Themes injected via JS -->
+                        </div>
+
+                        <button
+                            id="scrollRightBtn"
+                            class="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 z-20 bg-white/90 backdrop-blur shadow-md hover:shadow-lg rounded-full p-2 text-slate-700 hover:text-indigo-600 transition-all border border-slate-100 hidden sm:flex items-center justify-center h-10 w-10"
+                        >
+                            <i class="ph ph-caret-right text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Page Count and Text Color -->
+                <div class="flex flex-col sm:flex-row gap-6">
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <label for="pageCountInput" class="block text-sm font-medium text-slate-700">
+                                Amount of pages:
+                            </label>
+                            <span id="priceDisplay" class="bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-md text-sm shadow-sm border border-emerald-200">
+                                4.50 €
+                            </span>
+                        </div>
+                        <input
+                            type="number"
+                            id="pageCountInput"
+                            min="1"
+                            max="25"
+                            value="3"
+                            class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors shadow-sm text-lg"
+                        />
+                    </div>
+
+                    <div class="flex-1">
+                        <label for="textColorInput" class="block text-sm font-medium text-slate-700 mb-2">
+                            Choose text color:
+                        </label>
+                        <div class="flex items-center space-x-3">
+                            <input
+                                type="color"
+                                id="textColorInput"
+                                value="#334155"
+                                class="h-12 w-24 rounded-xl border-2 border-slate-300 cursor-pointer p-1 bg-white"
+                            />
+                            <span id="colorHexDisplay" class="text-sm font-medium text-slate-600 font-mono">#334155</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Message -->
+                <div id="errorContainer" class="hidden p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">
+                </div>
+
+                <!-- Generate Button -->
+                <button
+                    id="generateBtn"
+                    class="w-full py-4 px-6 rounded-xl flex items-center justify-center space-x-2 font-bold text-white text-lg transition-all bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-600/30 active:scale-[0.98]"
+                >
+                    <i id="btnIcon" class="ph ph-sparkle text-2xl"></i>
+                    <span id="btnText">Generate Story & Download PDF • 4.50 €</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading Status Container -->
+        <div id="statusContainer" class="hidden bg-white rounded-2xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+            <div class="flex items-center space-x-4">
+                <div class="w-8 h-8 flex-shrink-0 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <i class="ph ph-spinner ph-spin text-xl text-indigo-600"></i>
+                </div>
+                <p id="statusText" class="text-slate-700 font-medium text-lg"></p>
+            </div>
+        </div>
+
+        <!-- Generated Preview Container -->
+        <div id="previewContainer" class="hidden space-y-6 animate-fade-in">
+            <div class="flex items-center justify-between">
+                <h2 class="text-2xl font-bold flex items-center gap-2">
+                    <i class="ph ph-check-circle text-emerald-500 text-2xl"></i>
+                    Book Preview
+                </h2>
+                <button 
+                    id="downloadAgainBtn"
+                    class="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                    <i class="ph ph-download-simple text-lg"></i>
+                    Download PDF Again
+                </button>
+            </div>
+
+            <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+                <!-- Cover Section -->
+                <div 
+                    id="previewCoverSection"
+                    class="relative p-8 text-center border-b border-slate-100 bg-cover bg-center"
+                >
+                    <div id="previewCoverOverlay" class="absolute inset-0 bg-white/60 backdrop-blur-[2px] hidden"></div>
+                    <div class="relative z-10">
+                        <h3 id="previewTitle" class="text-3xl font-extrabold mb-6 drop-shadow-sm"></h3>
+                        <div id="previewCoverWrapper" class="flex flex-col items-center justify-center mb-4 hidden">
+                            <div id="previewCoverBorder" class="rounded-xl shadow-2xl overflow-hidden mb-4 border-4 border-white">
+                                <img 
+                                    id="previewCoverImage"
+                                    src="" 
+                                    alt="Book Cover" 
+                                    class="w-48 h-48 md:w-64 md:h-64 object-cover"
+                                />
+                            </div>
+                            <span class="inline-block bg-white/90 backdrop-blur-sm text-indigo-800 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full shadow-sm">
+                                Book Cover
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Scenes Section -->
+                <div id="previewScenesSection" class="divide-y divide-slate-100">
+                    <!-- Scenes injected via JS -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // The API key is injected by the execution environment
+        const apiKey = "";
+
+        const THEMES = [
+            {
+                id: "Standard",
+                name: "Standard White",
+                previewStyle: { backgroundColor: "#ffffff" },
+                prompt: null
+            },
+            {
+                id: "Vintage Scrapbook",
+                name: "Vintage Notes",
+                previewStyle: { backgroundImage: "url('https://images.unsplash.com/photo-1455309036818-60a6947b1981?auto=format&fit=crop&w=300&q=80')", backgroundSize: 'cover' },
+                prompt: "A beautiful vintage junk journal page background, collage of old torn paper, vintage maps, dried botanical leaves and flowers on the borders, classical aesthetic. The center of the image MUST be a large, solid light-cream blank space for writing text. Top-down view, high resolution."
+            },
+            {
+                id: "Fairy Tale Parchment",
+                name: "Old Parchment",
+                previewStyle: { backgroundImage: "url('https://images.unsplash.com/photo-1607434472257-d9f8e57a643d?auto=format&fit=crop&w=300&q=80')", backgroundSize: 'cover' },
+                prompt: "An ancient magical scroll parchment paper background. Soft glowing golden edges, elegant subtle fantasy filigree corners. The center MUST be a large, clean, blank light-colored area for writing text. High resolution."
+            },
+            {
+                id: "Floral Watercolor",
+                name: "Floral Dream",
+                previewStyle: { backgroundImage: "url('https://images.unsplash.com/photo-1580196969807-cc6de06c05be?auto=format&fit=crop&w=300&q=80')", backgroundSize: 'cover' },
+                prompt: "A beautiful soft watercolor background page, pastel pink and blue washes, delicate painted flowers on the corners. The center MUST be a large, clean, blank light-colored area for writing text. High resolution."
+            },
+            {
+                id: "Travel Airmail",
+                name: "Travel Airmail",
+                previewStyle: { backgroundImage: "url('https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?auto=format&fit=crop&w=300&q=80')", backgroundSize: 'cover' },
+                prompt: "A vintage airmail travel journal background. Old postage stamps, blue and red airmail borders, travel postmarks. The center MUST be a large, clean, blank light-colored paper area for writing text. High resolution."
+            }
+        ];
+
+        // Application State
+        let state = {
+            topic: "",
+            pageCount: 3,
+            textColor: "#334155",
+            theme: "Standard",
+            isGenerating: false,
+            characterImage: null,
+            characterImagePreview: null,
+            generatedData: null
+        };
+
+        // DOM Elements
+        const DOM = {
+            topicInput: document.getElementById('topicInput'),
+            pageCountInput: document.getElementById('pageCountInput'),
+            textColorInput: document.getElementById('textColorInput'),
+            colorHexDisplay: document.getElementById('colorHexDisplay'),
+            priceDisplay: document.getElementById('priceDisplay'),
+            
+            characterInput: document.getElementById('characterInput'),
+            uploadPrompt: document.getElementById('uploadPrompt'),
+            uploadPreview: document.getElementById('uploadPreview'),
+            characterPreviewImage: document.getElementById('characterPreviewImage'),
+            clearCharacterBtn: document.getElementById('clearCharacterBtn'),
+            
+            themeScrollContainer: document.getElementById('themeScrollContainer'),
+            scrollLeftBtn: document.getElementById('scrollLeftBtn'),
+            scrollRightBtn: document.getElementById('scrollRightBtn'),
+            
+            generateBtn: document.getElementById('generateBtn'),
+            btnIcon: document.getElementById('btnIcon'),
+            btnText: document.getElementById('btnText'),
+            
+            errorContainer: document.getElementById('errorContainer'),
+            statusContainer: document.getElementById('statusContainer'),
+            statusText: document.getElementById('statusText'),
+            
+            previewContainer: document.getElementById('previewContainer'),
+            previewCoverSection: document.getElementById('previewCoverSection'),
+            previewCoverOverlay: document.getElementById('previewCoverOverlay'),
+            previewTitle: document.getElementById('previewTitle'),
+            previewCoverWrapper: document.getElementById('previewCoverWrapper'),
+            previewCoverBorder: document.getElementById('previewCoverBorder'),
+            previewCoverImage: document.getElementById('previewCoverImage'),
+            previewScenesSection: document.getElementById('previewScenesSection'),
+            downloadAgainBtn: document.getElementById('downloadAgainBtn'),
+        };
+
+        const calculatePrice = (pages) => {
+            if (pages <= 4) return 4.5;
+            if (pages <= 6) return 6.0;
+            if (pages <= 10) return 7.0;
+            if (pages <= 15) return 8.0;
+            if (pages <= 20) return 9.0;
+            return 10.0;
+        };
+
+        const updatePriceDisplay = () => {
+            const price = calculatePrice(state.pageCount).toFixed(2);
+            DOM.priceDisplay.textContent = `${price} €`;
+            if (!state.isGenerating) {
+                DOM.btnText.textContent = `Generate Story & Download PDF • ${price} €`;
+            }
+        };
+
+        const showError = (message) => {
+            DOM.errorContainer.textContent = message;
+            DOM.errorContainer.classList.remove('hidden');
+        };
+
+        const hideError = () => {
+            DOM.errorContainer.classList.add('hidden');
+            DOM.errorContainer.textContent = "";
+        };
+
+        const setGeneratingState = (isGenerating, statusMsg = "") => {
+            state.isGenerating = isGenerating;
+            
+            // Update inputs
+            DOM.topicInput.disabled = isGenerating;
+            DOM.pageCountInput.disabled = isGenerating;
+            DOM.textColorInput.disabled = isGenerating;
+            DOM.characterInput.disabled = isGenerating;
+            DOM.clearCharacterBtn.disabled = isGenerating;
+            
+            // Update button
+            DOM.generateBtn.disabled = isGenerating || !state.topic.trim();
+            if (isGenerating) {
+                DOM.generateBtn.classList.replace('bg-indigo-600', 'bg-indigo-400');
+                DOM.generateBtn.classList.replace('hover:bg-indigo-700', 'cursor-not-allowed');
+                DOM.btnIcon.className = "ph ph-spinner ph-spin text-2xl";
+                DOM.btnText.textContent = statusMsg || "Working on it... (please wait)";
+            } else {
+                DOM.generateBtn.classList.replace('bg-indigo-400', 'bg-indigo-600');
+                DOM.generateBtn.classList.replace('cursor-not-allowed', 'hover:bg-indigo-700');
+                DOM.btnIcon.className = "ph ph-sparkle text-2xl";
+                updatePriceDisplay();
+            }
+
+            // Update status UI
+            if (isGenerating && statusMsg) {
+                DOM.statusText.textContent = statusMsg;
+                DOM.statusContainer.classList.remove('hidden');
+            } else {
+                // Timeout to let users read "Done!" before hiding
+                setTimeout(() => {
+                    if (!state.isGenerating) DOM.statusContainer.classList.add('hidden');
+                }, 4000);
+            }
+
+            renderThemes(); // Re-render themes to apply disabled states
+        };
+
+        const fetchWithRetry = async (url, options, retries = 5) => {
+            const delays = [1000, 2000, 4000, 8000, 16000];
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (e) {
+                    if (i === retries - 1) throw e;
+                    console.warn(`Fetch failed, retrying in ${delays[i]}ms...`, e);
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+        };
+
+        const generateStoryText = async (prompt, numPages) => {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            const sentencesPerScene = numPages > 12 ? "3 to 4" : "6 to 8";
+            
+            const payload = {
+                contents: [{ parts: [{ text: `Write a short, engaging story about: ${prompt}. Break it down into exactly ${numPages} scenes. Also include a prompt for the book cover. VERY IMPORTANT: The text for EACH scene should be a detailed paragraph (around ${sentencesPerScene} sentences long). Ensure the story is fully completed within the response limit.` }] }],
+                systemInstruction: {
+                    parts: [{ text: "You are a creative children's book author and illustrator planner. Output ONLY valid, complete JSON according to the schema provided. Ensure all requested fields are populated. IMPORTANT: Do NOT include literal newline characters inside JSON string values." }]
+                },
+                generationConfig: {
+                    maxOutputTokens: 8192,
+                    temperature: 0.7,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            title: { type: "STRING" },
+                            coverImagePrompt: { type: "STRING", description: "A highly detailed visual prompt for an AI image generator to illustrate the book cover." },
+                            scenes: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        text: { type: "STRING", description: "The story text for this scene." },
+                                        imagePrompt: { type: "STRING", description: "A highly detailed visual prompt for an AI image generator to illustrate this specific scene. Beautiful, digital art style." }
+                                    },
+                                    required: ["text", "imagePrompt"]
+                                }
+                            }
+                        },
+                        required: ["title", "coverImagePrompt", "scenes"]
+                    }
+                }
+            };
+
+            const data = await fetchWithRetry(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            let textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!textResponse) throw new Error("Failed to generate story text.");
+            
+            const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                textResponse = jsonMatch[0];
+            } else {
+                textResponse = textResponse.replace(/^```(json)?\n?/, '').replace(/\n?```$/, '').trim();
+            }
+            
+            let parsedJSON;
+            try {
+                parsedJSON = JSON.parse(textResponse);
+            } catch (parseError) {
+                console.error("JSON Parsing Error. Raw response:", textResponse);
+                throw new Error("The AI returned an incomplete story format. This often happens if the requested story gets too long. Please try requesting fewer pages.");
+            }
+            
+            if (!parsedJSON || !Array.isArray(parsedJSON.scenes)) {
+                console.error("Invalid JSON structure returned:", parsedJSON);
+                throw new Error("The AI returned an invalid story format. Please try again.");
+            }
+            
+            return parsedJSON;
+        };
+
+        const generateImage = async (imagePrompt, isBackground = false) => {
+            if (state.characterImage && !isBackground) {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`;
+                
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [
+                            { text: `Create a children's book illustration for this scene: ${imagePrompt}. IMPORTANT: The main character in this scene MUST look EXACTLY like the character in the attached reference image.` },
+                            {
+                                inlineData: {
+                                    mimeType: state.characterImage.mimeType,
+                                    data: state.characterImage.data
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        responseModalities: ['TEXT', 'IMAGE']
+                    }
+                };
+
+                const data = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const part = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+                if (!part) throw new Error("Failed to generate character-referenced image.");
+                
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            } else {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+                
+                const payload = {
+                    instances: { prompt: imagePrompt },
+                    parameters: { sampleCount: 1 }
+                };
+
+                const data = await fetchWithRetry(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const base64Data = data.predictions?.[0]?.bytesBase64Encoded;
+                if (!base64Data) throw new Error("Failed to generate image.");
+                
+                return `data:image/png;base64,${base64Data}`;
+            }
+        };
+
+        const createAndDownloadPDF = (storyData) => {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                throw new Error("PDF Library is not loaded yet.");
+            }
+
+            const doc = new window.jspdf.jsPDF({
+                orientation: "portrait",
+                unit: "mm",
+                format: "a4"
+            });
+
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 55; 
+            const maxLineWidth = pageWidth - margin * 2;
+
+            const drawBackground = () => {
+                if (storyData.backgroundImageUrl) {
+                    doc.addImage(storyData.backgroundImageUrl, 'PNG', 0, 0, pageWidth, pageHeight);
+                }
+            };
+
+            // Title Page
+            drawBackground();
+            doc.setTextColor(state.textColor);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(28);
+            const titleLines = doc.splitTextToSize(storyData.title, maxLineWidth);
+            doc.text(titleLines, pageWidth / 2, 40, { align: "center" });
+
+            if (storyData.coverImageUrl) {
+                const coverSize = 110; 
+                const coverX = (pageWidth - coverSize) / 2;
+                const coverY = 75;
+                doc.addImage(storyData.coverImageUrl, 'PNG', coverX, coverY, coverSize, coverSize);
+                doc.setDrawColor(90, 90, 90);
+                doc.setLineWidth(0.5);
+                doc.rect(coverX, coverY, coverSize, coverSize, 'S'); 
+            }
+
+            // Scenes
+            storyData.scenes.forEach((scene, index) => {
+                // Text Page
+                doc.addPage();
+                drawBackground();
+                doc.setTextColor(state.textColor);
+                
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(18);
+                doc.text(`Part ${index + 1}`, margin, margin + 5);
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(14);
+                const textLines = doc.splitTextToSize(scene.text, maxLineWidth); 
+                doc.text(textLines, margin, margin + 20);
+
+                // Image Page
+                doc.addPage();
+                drawBackground();
+                
+                const imgSize = 120; 
+                const xPos = (pageWidth - imgSize) / 2;
+                const yPos = (pageHeight - imgSize) / 2;
+                
+                doc.addImage(scene.imageUrl, 'PNG', xPos, yPos, imgSize, imgSize);
+                doc.setDrawColor(90, 90, 90);
+                doc.setLineWidth(0.5);
+                doc.rect(xPos, yPos, imgSize, imgSize, 'S'); 
+            });
+
+            doc.save(`${storyData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_storybook.pdf`);
+        };
+
+        const renderThemes = () => {
+            DOM.themeScrollContainer.innerHTML = THEMES.map(t => {
+                const isSelected = state.theme === t.id;
+                const borderClass = isSelected 
+                    ? 'border-indigo-500 shadow-lg scale-[1.02] ring-4 ring-indigo-500/20' 
+                    : 'border-slate-200 hover:border-indigo-300 shadow-sm opacity-85 hover:opacity-100';
+                
+                const styleStr = Object.entries(t.previewStyle)
+                    .map(([key, value]) => {
+                        // Convert camelCase to kebab-case
+                        const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+                        return `${cssKey}: ${value};`;
+                    }).join(' ');
+
+                return `
+                    <button
+                        type="button"
+                        data-theme-id="${t.id}"
+                        ${state.isGenerating ? 'disabled' : ''}
+                        class="theme-btn snap-center flex-shrink-0 w-36 h-36 sm:w-40 sm:h-40 rounded-2xl overflow-hidden relative transition-all duration-300 border-[3px] ${borderClass}"
+                    >
+                        <div class="w-full h-full bg-slate-50 flex flex-col justify-end" style="${styleStr}">
+                            <div class="bg-white/90 backdrop-blur-sm w-full py-2.5 px-2 text-center text-xs font-bold text-slate-800 border-t border-white/50">
+                                ${t.name}
+                            </div>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+
+            // Attach listeners to newly rendered buttons
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (state.isGenerating) return;
+                    state.theme = btn.dataset.themeId;
+                    renderThemes();
+                });
+            });
+        };
+
+        const renderPreview = () => {
+            if (!state.generatedData) {
+                DOM.previewContainer.classList.add('hidden');
+                return;
+            }
+
+            const data = state.generatedData;
+            DOM.previewContainer.classList.remove('hidden');
+
+            // Cover Section Styling
+            if (data.backgroundImageUrl) {
+                DOM.previewCoverSection.style.backgroundImage = `url(${data.backgroundImageUrl})`;
+                DOM.previewCoverSection.style.backgroundColor = 'transparent';
+                DOM.previewCoverOverlay.classList.remove('hidden');
+                DOM.previewCoverBorder.className = "rounded-xl shadow-2xl overflow-hidden mb-4 border-8 border-white bg-white -rotate-2";
+            } else {
+                DOM.previewCoverSection.style.backgroundImage = 'none';
+                DOM.previewCoverSection.style.backgroundColor = '#f8fafc';
+                DOM.previewCoverOverlay.classList.add('hidden');
+                DOM.previewCoverBorder.className = "rounded-xl shadow-2xl overflow-hidden mb-4 border-4 border-white";
+            }
+
+            DOM.previewTitle.style.color = state.textColor;
+            DOM.previewTitle.textContent = data.title;
+
+            if (data.coverImageUrl) {
+                DOM.previewCoverImage.src = data.coverImageUrl;
+                DOM.previewCoverWrapper.classList.remove('hidden');
+                DOM.previewCoverWrapper.classList.add('flex'); // restore flex
+            } else {
+                DOM.previewCoverWrapper.classList.add('hidden');
+            }
+
+            // Scenes Section
+            DOM.previewScenesSection.innerHTML = data.scenes.map((scene, idx) => {
+                const bgStyle = data.backgroundImageUrl 
+                    ? `background-image: url(${data.backgroundImageUrl}); background-color: transparent;`
+                    : `background-image: none; background-color: #f8fafc;`;
+                
+                const overlayHtml = data.backgroundImageUrl 
+                    ? `<div class="absolute inset-0 bg-white/80 backdrop-blur-[2px]"></div>`
+                    : '';
+
+                const imageBorderClass = data.backgroundImageUrl 
+                    ? 'border-8 border-white bg-white rotate-1' 
+                    : 'border border-slate-200';
+
+                return `
+                    <div class="relative p-6 md:p-8 flex flex-col md:flex-row gap-8 items-center bg-cover bg-center overflow-hidden" style="${bgStyle}">
+                        ${overlayHtml}
+                        <div class="relative z-10 flex-1 space-y-4">
+                            <div class="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 bg-white/80 px-2 py-1 rounded-md">
+                                <i class="ph ph-file-text text-base"></i>
+                                <span>Part ${idx + 1}</span>
+                            </div>
+                            <p class="text-lg leading-relaxed whitespace-pre-wrap font-medium drop-shadow-sm" style="color: ${state.textColor}">
+                                ${scene.text}
+                            </p>
+                        </div>
+                        
+                        <div class="relative z-10 w-full md:w-1/2 lg:w-2/5 flex-shrink-0">
+                            <div class="rounded-2xl shadow-xl overflow-hidden transition-transform hover:scale-105 duration-300 ${imageBorderClass}">
+                                <img src="${scene.imageUrl}" alt="Scene ${idx + 1}" class="w-full h-auto object-cover aspect-square" />
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        };
+
+        // Form Listeners
+        DOM.topicInput.addEventListener('input', (e) => {
+            state.topic = e.target.value;
+            DOM.generateBtn.disabled = state.isGenerating || !state.topic.trim();
+        });
+
+        DOM.pageCountInput.addEventListener('input', (e) => {
+            let val = parseInt(e.target.value) || 1;
+            val = Math.max(1, Math.min(25, val));
+            state.pageCount = val;
+            e.target.value = val;
+            updatePriceDisplay();
+        });
+
+        DOM.textColorInput.addEventListener('input', (e) => {
+            state.textColor = e.target.value;
+            DOM.colorHexDisplay.textContent = state.textColor;
+        });
+
+        // Horizontal scroll for themes
+        const scrollThemes = (direction) => {
+            const scrollAmount = direction === 'left' ? -250 : 250;
+            DOM.themeScrollContainer.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        };
+        DOM.scrollLeftBtn.addEventListener('click', () => scrollThemes('left'));
+        DOM.scrollRightBtn.addEventListener('click', () => scrollThemes('right'));
+
+        // Image Upload Listeners
+        DOM.characterInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const result = reader.result;
+                state.characterImagePreview = result;
+                
+                const mimeType = result.split(';')[0].split(':')[1];
+                const base64Data = result.split(',')[1];
+                state.characterImage = { mimeType, data: base64Data };
+
+                DOM.characterPreviewImage.src = result;
+                DOM.uploadPrompt.classList.add('hidden');
+                DOM.uploadPreview.classList.remove('hidden');
+                DOM.uploadPreview.classList.add('flex');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        DOM.clearCharacterBtn.addEventListener('click', () => {
+            state.characterImage = null;
+            state.characterImagePreview = null;
+            DOM.characterInput.value = "";
+            DOM.uploadPreview.classList.add('hidden');
+            DOM.uploadPreview.classList.remove('flex');
+            DOM.uploadPrompt.classList.remove('hidden');
+        });
+
+        // Main Execution Flow
+        DOM.generateBtn.addEventListener('click', async () => {
+            if (!state.topic.trim()) {
+                showError("Please enter a topic for your story.");
+                return;
+            }
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                showError("Still loading PDF libraries, please wait a second and try again.");
+                return;
+            }
+
+            hideError();
+            state.generatedData = null;
+            renderPreview(); // Clear old preview
+
+            try {
+                setGeneratingState(true, `Writing the ${state.pageCount}-page story and imagining scenes... (please wait)`);
+                const storyJSON = await generateStoryText(state.topic, state.pageCount);
+                
+                let backgroundImageUrl = null;
+                const selectedThemeData = THEMES.find(t => t.id === state.theme);
+                
+                if (selectedThemeData && selectedThemeData.prompt) {
+                    setGeneratingState(true, `Designing ${selectedThemeData.name} template... (please wait)`);
+                    backgroundImageUrl = await generateImage(selectedThemeData.prompt, true);
+                }
+
+                setGeneratingState(true, "Painting the book cover... (please wait)");
+                const coverImageUrl = await generateImage(storyJSON.coverImagePrompt, false);
+
+                const scenesWithImages = [];
+                for (let i = 0; i < storyJSON.scenes.length; i++) {
+                    setGeneratingState(true, `Painting image ${i + 1} of ${storyJSON.scenes.length}... (please wait)`);
+                    const scene = storyJSON.scenes[i];
+                    const imageUrl = await generateImage(scene.imagePrompt, false);
+                    scenesWithImages.push({ ...scene, imageUrl });
+                }
+
+                const completeData = {
+                    title: storyJSON.title,
+                    coverImageUrl: coverImageUrl,
+                    backgroundImageUrl: backgroundImageUrl,
+                    scenes: scenesWithImages
+                };
+
+                state.generatedData = completeData;
+
+                setGeneratingState(true, "Assembling your PDF Book... (almost done)");
+                createAndDownloadPDF(completeData);
+                
+                setGeneratingState(true, "Done! Your PDF has been downloaded.");
+                renderPreview();
+                
+            } catch (err) {
+                console.error("Story generation error: ", err);
+                showError("An error occurred while creating your storybook. Rate limits or connectivity issues might be the cause. Please try again.");
+                DOM.statusText.textContent = "";
+            } finally {
+                setGeneratingState(false);
+            }
+        });
+
+        DOM.downloadAgainBtn.addEventListener('click', () => {
+            if (state.generatedData) {
+                createAndDownloadPDF(state.generatedData);
+            }
+        });
+
+        // Initialize App
+        renderThemes();
+        updatePriceDisplay();
+
+    </script>
+</body>
+</html>
