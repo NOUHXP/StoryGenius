@@ -410,12 +410,17 @@
                     const response = await fetch(url, options);
                     if (!response.ok) {
                         const errText = await response.text();
-                        throw new Error(`HTTP ${response.status}: ${errText}`);
+                        const errorMsg = `HTTP ${response.status}: ${errText}`;
+                        // Fast-fail if the error is a missing/invalid API key (Status 400)
+                        if (response.status === 400 && errText.includes("API key")) {
+                            throw new Error("MISSING_API_KEY");
+                        }
+                        throw new Error(errorMsg);
                     }
                     return await response.json();
                 } catch (e) {
+                    if (e.message === "MISSING_API_KEY") throw e; // Don't retry missing keys
                     if (i === retries - 1) throw e;
-                    // Exponential backoff delay (intentionally omitting console logging)
                     await new Promise(resolve => setTimeout(resolve, delays[i]));
                 }
             }
@@ -849,7 +854,14 @@
                 
             } catch (err) {
                 console.error("Story generation error: ", err);
-                showError(`Oops! An error occurred: ${err.message}. Please try generating again.`);
+                
+                let errorMsg = err.message;
+                // Specifically detect the missing API key scenario
+                if (errorMsg === "MISSING_API_KEY" || errorMsg.includes("API key") || (!apiKey && errorMsg.includes("HTTP 400"))) {
+                    errorMsg = "To run this app on your own computer or website, you MUST put your Google Gemini API Key inside the code. Find 'const apiKey = \"\";' near the top of the script and add your key.";
+                }
+
+                showError(`Oops! An error occurred: ${errorMsg}`);
                 DOM.statusText.textContent = "";
             } finally {
                 setGeneratingState(false);
