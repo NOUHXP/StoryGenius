@@ -409,12 +409,13 @@
                 try {
                     const response = await fetch(url, options);
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        const errText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errText}`);
                     }
                     return await response.json();
                 } catch (e) {
                     if (i === retries - 1) throw e;
-                    // Intentionally omitting console logging of retries per API rules
+                    // Exponential backoff delay (intentionally omitting console logging)
                     await new Promise(resolve => setTimeout(resolve, delays[i]));
                 }
             }
@@ -446,11 +447,13 @@
                                         text: { type: "STRING", description: "The story text for this scene." },
                                         imagePrompt: { type: "STRING", description: "A highly detailed visual prompt for an AI image generator to illustrate this specific scene. Beautiful, digital art style." }
                                     },
-                                    required: ["text", "imagePrompt"]
+                                    required: ["text", "imagePrompt"],
+                                    propertyOrdering: ["text", "imagePrompt"]
                                 }
                             }
                         },
-                        required: ["title", "coverImagePrompt", "scenes"]
+                        required: ["title", "coverImagePrompt", "scenes"],
+                        propertyOrdering: ["title", "coverImagePrompt", "scenes"]
                     }
                 }
             };
@@ -556,9 +559,17 @@
             const margin = 55; 
             const maxLineWidth = pageWidth - margin * 2;
 
+            const getImageFormat = (url) => {
+                if (!url) return 'PNG';
+                if (url.startsWith('data:image/jpeg')) return 'JPEG';
+                if (url.startsWith('data:image/webp')) return 'WEBP';
+                return 'PNG';
+            };
+
             const drawBackground = () => {
                 if (storyData.backgroundImageUrl) {
-                    doc.addImage(storyData.backgroundImageUrl, 'PNG', 0, 0, pageWidth, pageHeight);
+                    const bgFormat = getImageFormat(storyData.backgroundImageUrl);
+                    doc.addImage(storyData.backgroundImageUrl, bgFormat, 0, 0, pageWidth, pageHeight);
                 }
             };
 
@@ -574,7 +585,8 @@
                 const coverSize = 110; 
                 const coverX = (pageWidth - coverSize) / 2;
                 const coverY = 75;
-                doc.addImage(storyData.coverImageUrl, 'PNG', coverX, coverY, coverSize, coverSize);
+                const coverFormat = getImageFormat(storyData.coverImageUrl);
+                doc.addImage(storyData.coverImageUrl, coverFormat, coverX, coverY, coverSize, coverSize);
                 doc.setDrawColor(90, 90, 90);
                 doc.setLineWidth(0.5);
                 doc.rect(coverX, coverY, coverSize, coverSize, 'S'); 
@@ -604,7 +616,8 @@
                 const xPos = (pageWidth - imgSize) / 2;
                 const yPos = (pageHeight - imgSize) / 2;
                 
-                doc.addImage(scene.imageUrl, 'PNG', xPos, yPos, imgSize, imgSize);
+                const sceneFormat = getImageFormat(scene.imageUrl);
+                doc.addImage(scene.imageUrl, sceneFormat, xPos, yPos, imgSize, imgSize);
                 doc.setDrawColor(90, 90, 90);
                 doc.setLineWidth(0.5);
                 doc.rect(xPos, yPos, imgSize, imgSize, 'S'); 
@@ -836,7 +849,7 @@
                 
             } catch (err) {
                 console.error("Story generation error: ", err);
-                showError("An error occurred while creating your storybook. Rate limits or connectivity issues might be the cause. Please try again.");
+                showError(`Oops! An error occurred: ${err.message}. Please try generating again.`);
                 DOM.statusText.textContent = "";
             } finally {
                 setGeneratingState(false);
