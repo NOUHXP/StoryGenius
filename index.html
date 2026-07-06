@@ -411,8 +411,8 @@
                     if (!response.ok) {
                         const errText = await response.text();
                         const errorMsg = `HTTP ${response.status}: ${errText}`;
-                        // Fast-fail if the error is a missing/invalid API key (Status 400)
-                        if (response.status === 400 && errText.includes("API key")) {
+                        // Fast-fail if the error is a missing/invalid API key (Status 400 or 403)
+                        if (response.status === 403 || response.status === 400 || errText.includes("unregistered callers")) {
                             throw new Error("MISSING_API_KEY");
                         }
                         throw new Error(errorMsg);
@@ -857,8 +857,8 @@
                 
                 let errorMsg = err.message;
                 // Specifically detect the missing API key scenario
-                if (errorMsg === "MISSING_API_KEY" || errorMsg.includes("API key") || (!apiKey && errorMsg.includes("HTTP 400"))) {
-                    errorMsg = "To run this app on your own computer or website, you MUST put your Google Gemini API Key inside the code. Find 'const apiKey = \"\";' near the top of the script and add your key.";
+                if (errorMsg === "MISSING_API_KEY" || errorMsg.includes("unregistered") || !apiKey) {
+                    errorMsg = "To run this app on your own computer or website, you MUST put your Google Gemini API Key inside the code. Open the HTML file, find 'const apiKey = \"\";', and put your key inside the quotes!";
                 }
 
                 showError(`Oops! An error occurred: ${errorMsg}`);
