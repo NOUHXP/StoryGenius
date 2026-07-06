@@ -410,7 +410,6 @@
                     const response = await fetch(url, options);
                     if (!response.ok) {
                         const errText = await response.text();
-                        // Simplify error handling: just throw the text so it can be parsed or displayed.
                         throw new Error(`HTTP ${response.status}: ${errText}`);
                     }
                     return await response.json();
