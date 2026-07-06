@@ -253,7 +253,7 @@
     </div>
 
     <script>
-        // The API key is injected by the execution environment
+        // The API key is injected by the execution environment. Keep empty!
         const apiKey = "";
 
         const THEMES = [
@@ -410,16 +410,11 @@
                     const response = await fetch(url, options);
                     if (!response.ok) {
                         const errText = await response.text();
-                        const errorMsg = `HTTP ${response.status}: ${errText}`;
-                        // Fast-fail if the error is a missing/invalid API key (Status 400 or 403)
-                        if (response.status === 403 || response.status === 400 || errText.includes("unregistered callers")) {
-                            throw new Error("MISSING_API_KEY");
-                        }
-                        throw new Error(errorMsg);
+                        // Simplify error handling: just throw the text so it can be parsed or displayed.
+                        throw new Error(`HTTP ${response.status}: ${errText}`);
                     }
                     return await response.json();
                 } catch (e) {
-                    if (e.message === "MISSING_API_KEY") throw e; // Don't retry missing keys
                     if (i === retries - 1) throw e;
                     await new Promise(resolve => setTimeout(resolve, delays[i]));
                 }
@@ -856,9 +851,10 @@
                 console.error("Story generation error: ", err);
                 
                 let errorMsg = err.message;
-                // Specifically detect the missing API key scenario
-                if (errorMsg === "MISSING_API_KEY" || errorMsg.includes("unregistered") || !apiKey) {
-                    errorMsg = "To run this app on your own computer or website, you MUST put your Google Gemini API Key inside the code. Open the HTML file, find 'const apiKey = \"\";', and put your key inside the quotes!";
+                
+                // Provide a friendly error if it looks like an API key issue, otherwise show the raw message
+                if (errorMsg.includes("unregistered callers") || errorMsg.includes("API_KEY_INVALID")) {
+                    errorMsg = "API key issue. The application could not authenticate with Google's servers. Please ensure the API key is correctly provided in the environment.";
                 }
 
                 showError(`Oops! An error occurred: ${errorMsg}`);
