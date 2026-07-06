@@ -410,10 +410,15 @@
                     const response = await fetch(url, options);
                     if (!response.ok) {
                         const errText = await response.text();
-                        throw new Error(`HTTP ${response.status}: ${errText}`);
+                        const errorMsg = `HTTP ${response.status}: ${errText}`;
+                        if (response.status === 403 || errText.includes("unregistered callers")) {
+                            throw new Error("API_KEY_ERROR: " + errorMsg);
+                        }
+                        throw new Error(errorMsg);
                     }
                     return await response.json();
                 } catch (e) {
+                    if (e.message.startsWith("API_KEY_ERROR")) throw e; // Don't retry missing keys
                     if (i === retries - 1) throw e;
                     await new Promise(resolve => setTimeout(resolve, delays[i]));
                 }
@@ -425,7 +430,7 @@
             const sentencesPerScene = numPages > 12 ? "3 to 4" : "6 to 8";
             
             const payload = {
-                contents: [{ parts: [{ text: `Write a short, engaging story about: ${prompt}. Break it down into exactly ${numPages} scenes. Also include a prompt for the book cover. VERY IMPORTANT: The text for EACH scene should be a detailed paragraph (around ${sentencesPerScene} sentences long). Ensure the story is fully completed within the response limit.` }] }],
+                contents: [{ role: "user", parts: [{ text: `Write a short, engaging story about: ${prompt}. Break it down into exactly ${numPages} scenes. Also include a prompt for the book cover. VERY IMPORTANT: The text for EACH scene should be a detailed paragraph (around ${sentencesPerScene} sentences long). Ensure the story is fully completed within the response limit.` }] }],
                 systemInstruction: {
                     parts: [{ text: "You are a creative children's book author and illustrator planner. Output ONLY valid, complete JSON according to the schema provided. Ensure all requested fields are populated. IMPORTANT: Do NOT include literal newline characters inside JSON string values." }]
                 },
@@ -851,9 +856,8 @@
                 
                 let errorMsg = err.message;
                 
-                // Provide a friendly error if it looks like an API key issue, otherwise show the raw message
-                if (errorMsg.includes("unregistered callers") || errorMsg.includes("API_KEY_INVALID")) {
-                    errorMsg = "API key issue. The application could not authenticate with Google's servers. Please ensure the API key is correctly provided in the environment.";
+                if (errorMsg.startsWith("API_KEY_ERROR") || errorMsg.includes("unregistered")) {
+                    errorMsg = "API key issue. The application could not authenticate with Google's servers. Make sure you are running this within the intended environment.";
                 }
 
                 showError(`Oops! An error occurred: ${errorMsg}`);
